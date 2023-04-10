@@ -13,38 +13,14 @@ import Kmean as kmean
 
 
 
-def feature_matching(data1_path, data2_path, flatten=spmu.FlattenMode.Average, draw_plot=False):
+def feature_matching_map(map1, map2, draw_plot=False):
     """
-    compare two image to calculate the pixel shift in x, y, z
-    :param data1_path:previous data serializer path
-    :param data2_path:present data serializer path
-    :param flatten:flatten method in spmutil
+    compare two image to calculate the pixel shift in x, y
+    :param map1:ndarray of the original map
+    :param map2:ndarray of the compared target map
     :param draw_plot:write image
-    :return: dx(x pixel shift), x_std, dy, y_std, dz, sec(time duration in second)
+    :return: dx(x pixel shift), x_std, dy, y_std
     """
-    if data1_path is bytes:
-        data1_path = data1_path.encode()
-    if data2_path is bytes:
-        data2_path = data2_path.encode()
-    data1 = spmu.DataSerializer(data1_path)
-    data1.load()
-    data2 = spmu.DataSerializer(data2_path)
-    data2.load()
-
-    map1 = np.asarray(data1.data_dict['FWFW_ZMap'])
-    map2 = np.asarray(data2.data_dict['FWFW_ZMap'])
-
-    if flatten == spmu.FlattenMode.Average or spmu.FlattenMode.Off:
-        map1 = spmu.flatten_map(map1, flatten)
-        map2 = spmu.flatten_map(map2, flatten)
-    else:
-        flatten_param = spmu.get_flatten_param(map1, flatten, poly_fit_order=3)
-        map1 = spmu.apply_flatten_plane(map1, *flatten_param, poly_fit_order=3)
-        map2 = spmu.apply_flatten_plane(map2, *flatten_param, poly_fit_order=3)
-
-    map1 = spmu.filter_2d.GaussianHannMap(map1, 11, 1, 1)
-    map2 = spmu.filter_2d.GaussianHannMap(map2, 11, 1, 1)
-
 
     source_map = map1
     matching_map = map2
@@ -94,9 +70,6 @@ def feature_matching(data1_path, data2_path, flatten=spmu.FlattenMode.Average, d
             print("warning: not enough matched points. match result may be in low accuracy.",
                   len(movement_list_x), "detected.")
 
-        data2_header = spmu.ScanDataHeader.from_dataSerilizer(data2)
-        sec = data2_header.End_Scan_Sec
-
         if draw_plot:
             selected_good_match = []
             for it in good_matches:
@@ -105,20 +78,60 @@ def feature_matching(data1_path, data2_path, flatten=spmu.FlattenMode.Average, d
                 if np.min(pts[:, 0]) <= x1 - x2 <= np.max(pts[:, 0]):
                     selected_good_match.append(it)
 
-            def enlarge(img: np.ndarray):
-                s = img.shape
-                m = np.ones(shape=(260, 260), dtype=img.dtype) * 255
-                m[:s[0], :s[1]] = img
-                return m
-            img3 = cv2.drawMatches(enlarge(im_source), kp1, enlarge(im_search), kp2, good_matches, None, matchColor=(0, 0, 255),
+            img3 = cv2.drawMatches(im_source, kp1, im_search, kp2, good_matches, None, matchColor=(0, 0, 255),
                                    flags=cv2.DrawMatchesFlags_DEFAULT)
-            img4 = cv2.drawMatches(np.zeros((260, 260, 3), np.uint8), kp1,
-                                   np.zeros((260, 260, 3), np.uint8), kp2,
+            img4 = cv2.drawMatches(np.zeros((*im_source.shape, 3), np.uint8), kp1,
+                                   np.zeros((*im_search.shape, 3), np.uint8), kp2,
                                    selected_good_match, None, matchColor=(0, 255, 0),
                                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-            cv2.imwrite(os.path.basename(data2.path) + "_1.jpg", img3+img4)
+            cv2.imwrite("match.jpg", img3 + img4)
 
-        dx, dy, dz = round(float(np.mean(movement_list_x))), round(float(np.mean(movement_list_y))), 0
+        return float(np.mean(movement_list_x)), np.std(movement_list_x), \
+               float(np.mean(movement_list_y)), np.std(movement_list_y)
+    else:
+        print("no feature matched...")
+        return None, None, None, None
+
+
+
+def feature_matching_data(data1_path, data2_path, flatten=spmu.FlattenMode.Average, draw_plot=False):
+    """
+    compare two image to calculate the pixel shift in x, y, z
+    :param data1_path:previous data serializer path
+    :param data2_path:present data serializer path
+    :param flatten:flatten method in spmutil
+    :param draw_plot:write image
+    :return: dx(x pixel shift), x_std, dy, y_std, dz, sec(time duration in second)
+    """
+    if data1_path is bytes:
+        data1_path = data1_path.encode()
+    if data2_path is bytes:
+        data2_path = data2_path.encode()
+    data1 = spmu.DataSerializer(data1_path)
+    data1.load()
+    data2 = spmu.DataSerializer(data2_path)
+    data2.load()
+
+    map1 = np.asarray(data1.data_dict['FWFW_ZMap'])
+    map2 = np.asarray(data2.data_dict['FWFW_ZMap'])
+
+    if flatten == spmu.FlattenMode.Average or spmu.FlattenMode.Off:
+        map1 = spmu.flatten_map(map1, flatten)
+        map2 = spmu.flatten_map(map2, flatten)
+    else:
+        flatten_param = spmu.get_flatten_param(map1, flatten, poly_fit_order=3)
+        map1 = spmu.apply_flatten_plane(map1, *flatten_param, poly_fit_order=3)
+        map2 = spmu.apply_flatten_plane(map2, *flatten_param, poly_fit_order=3)
+
+    map1 = spmu.filter_2d.GaussianHannMap(map1, 11, 1, 1)
+    map2 = spmu.filter_2d.GaussianHannMap(map2, 11, 1, 1)
+
+    _dx, _error_x, _dy, _error_y = feature_matching_map(map1, map2, draw_plot=draw_plot)
+
+    data2_header = spmu.ScanDataHeader.from_dataSerilizer(data2)
+    sec = data2_header.End_Scan_Sec
+    if _dx is not None:
+        dx, dy, dz = round(_dx), round(_dy), 0
         data1.load()
         data2.load()
         map2 = np.asarray(data2.data_dict['FWFW_ZMap'])
@@ -142,10 +155,8 @@ def feature_matching(data1_path, data2_path, flatten=spmu.FlattenMode.Average, d
             z_drift_map = np.zeros(1)
         dz = stats.trim_mean(np.ndarray.flatten(z_drift_map), 0.25)
         print("dz=", dz, "±", np.std(z_drift_map))
-        print("dx=", float(np.mean(movement_list_x)), "±", np.std(movement_list_x),
-              "dy=", float(np.mean(movement_list_y)), "±", np.std(movement_list_y))
-        return float(np.mean(movement_list_x)), np.std(movement_list_x), \
-               float(np.mean(movement_list_y)), np.std(movement_list_y), dz, sec
+        print("dx=", _dx, "±", _error_x, "dy=", _dy, "±", _error_y)
+        return _dx, _error_x, _dy, _error_y, dz, sec
     else:
         print("no feature matched...")
         return None, None, None, None, None, None
@@ -173,7 +184,7 @@ def feature_point_matching_task(dataSerializers):
     header = spmu.ScanDataHeader().from_dataSerilizer(data)
 
     for i in range(0, len(dataSerializers) - 1):
-        dx, dy, dz, sec = feature_matching(dataSerializers[0].path, dataSerializers[i + 1].path)
+        dx, dy, dz, sec = feature_matching_data(dataSerializers[0].path, dataSerializers[i + 1].path)
         if dx is None:
             print("drift estimation stop")
             return

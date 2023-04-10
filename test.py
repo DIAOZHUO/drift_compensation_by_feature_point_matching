@@ -2,7 +2,7 @@ import SPMUtil as spmu
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
-from scripts.feature_matching import feature_matching, feature_point_matching_task
+from scripts.feature_matching import feature_matching_data, feature_point_matching_task
 import os
 
 
@@ -22,7 +22,7 @@ dy_list = []
 ey_list = []
 dz_list = []
 for i in range(len(file_list) - 1):
-    dx, ex, dy, ey, dz, sec = feature_matching(file_list[0], file_list[i + 1], draw_plot=True)
+    dx, ex, dy, ey, dz, sec = feature_matching_data(file_list[0], file_list[i + 1], draw_plot=True)
     data = spmu.DataSerializer(file_list[0])
     data.load()
     param = spmu.PythonScanParam().from_dataSerilizer(data)

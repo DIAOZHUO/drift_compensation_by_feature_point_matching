@@ -25,6 +25,19 @@ These values can be fed to a scan instrument as FeedForward signals to cancel dr
 
 <img src="./Figure_2.png" alt="figure2">
 
+Usage
+-------
+Compare two images: this code will return the pixel shift.
+```python
+import cv2
+from scripts.feature_matching import feature_matching_map
+map1 = cv2.imread("001.jpg")
+map2 = cv2.imread("002.jpg")
+print(feature_matching_map(map1, map2, draw_plot=True))
+
+```
+
+Compare scan datas with unit: see "text.py"
 
 Installation
 -------
@@ -38,3 +51,9 @@ Please install by the following command via pip:
 
 (some common packages)
 * `pip install matplotlib, opencv-python, opencv-contrib-python`
+
+Citation
+-------
+We will be appreciated if you can cite our work!
+
+Zhuo Diao, Keiichi Ueda, Linfeng Hou, Hayato Yamashita, Oscar Custance, Masayuki Abe, Appl. Phys. Lett. 122, 121601 (2023); https://doi.org/10.1063/5.0139330
